@@ -32,7 +32,8 @@ const client = new shopProto.CurrencyService(`localhost:${PORT}`,
 const logger = pino({
   name: 'currencyservice-client',
   messageKey: 'message',
-  changeLevelName: 'severity'
+  changeLevelName: 'severity',
+  useLevelLables: true
 });
 
 const request = {
