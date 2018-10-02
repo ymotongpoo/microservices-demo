@@ -18,12 +18,6 @@ import logging
 import random
 from locust import HttpLocust, TaskSet
 
-from logger import JSONStreamHandler
-
-log = logging.getLogger('console_logger')
-log.setLevel(logging.INFO)
-log.addHandler(JSONStreamHandler())
-
 products = [
     '0PUK6V6EV0',
     '1YMWWN1N4O',

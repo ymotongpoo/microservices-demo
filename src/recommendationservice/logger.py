@@ -22,11 +22,11 @@ class JSONStreamHandler(logging.StreamHandler):
   """JSONStreamHandler emits log data in JSON format to stdout"""
 
   def __init__(self):
-    super().__init__(sys.stdout)
+    super(JSONStreamHandler, self).__init__(sys.stdout)
 
   def emit(self, record):
     try:
-      msg = super().format(record)
+      msg = super(JSONStreamHandler, self).format(record)
       data = {
         'message': msg,
         'severity': record.levelname,
