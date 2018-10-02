@@ -20,7 +20,7 @@ const logger = pino({
   name: 'paymentservice-charge',
   messageKey: 'message',
   changeLevelName: 'severity',
-  useLevelLables: true
+  useLevelLabels: true
 });
 
 

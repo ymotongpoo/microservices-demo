@@ -48,7 +48,7 @@ const logger = pino({
   name: 'currencyservice-server',
   messageKey: 'message',
   changeLevelName: 'severity',
-  useLevelLables: true
+  useLevelLabels: true
 });
 
 /**

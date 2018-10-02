@@ -23,7 +23,7 @@ const logger = pino({
   name: 'paymentservice-server',
   messageKey: 'message',
   changeLevelName: 'severity',
-  useLevelLables: true
+  useLevelLabels: true
 });
 
 class HipsterShopServer {
