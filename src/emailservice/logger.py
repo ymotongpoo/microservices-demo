@@ -29,11 +29,11 @@ class JSONStreamHandler(logging.StreamHandler):
       msg = super().format(record)
       data = {
         'message': msg,
-        'severity': self.level,
+        'severity': record.levelname,
         'name': 'emailservice'
       }
       stream = self.stream
-      stream.write(json.dumps(data))
+      stream.write(json.dumps(data)+'\n')
       self.flush()
     except (KeyboardInterrupt, SystemExit):
       raise

@@ -55,7 +55,7 @@ from logger import JSONStreamHandler
 
 log = logging.getLogger('emailservice')
 log.setLevel(logging.INFO)
-log.addHandler(JSONStreamHandler)
+log.addHandler(JSONStreamHandler())
 
 # Loads confirmation email template from file
 env = Environment(
@@ -92,7 +92,7 @@ class EmailService(BaseEmailService):
         "html_body": content
       }
     )
-    print("Message sent: {}".format(response.rfc822_message_id))
+    log.info("Message sent: {}".format(response.rfc822_message_id))
 
   def SendOrderConfirmation(self, request, context):
     email = request.email
@@ -102,7 +102,7 @@ class EmailService(BaseEmailService):
       confirmation = template.render(order = order)
     except TemplateError as err:
       context.set_details("An error occurred when preparing the confirmation mail.")
-      print(err.message)
+      log.error(err.message)
       context.set_code(grpc.StatusCode.INTERNAL)
       return demo_pb2.Empty()
 
@@ -118,7 +118,7 @@ class EmailService(BaseEmailService):
 
 class DummyEmailService(BaseEmailService):
   def SendOrderConfirmation(self, request, context):
-    print('A request to send order confirmation email to {} has been received.'.format(request.email))
+    log.info('A request to send order confirmation email to {} has been received.'.format(request.email))
     return demo_pb2.Empty()
 
 class HealthCheck():

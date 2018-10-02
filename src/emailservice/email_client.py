@@ -24,7 +24,7 @@ from logger import JSONStreamHandler
 
 log = logging.getLogger('emailservice')
 log.setLevel(logging.INFO)
-log.addHandler(JSONStreamHandler)
+log.addHandler(JSONStreamHandler())
 
 # from opencensus.trace.tracer import Tracer
 # from opencensus.trace.exporters import stackdriver_exporter
