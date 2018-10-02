@@ -16,6 +16,7 @@
 
 import logging
 import sys
+import json
 
 class JSONStreamHandler(logging.StreamHandler):
   """JSONStreamHandler emits log data in JSON format to stdout"""
@@ -25,7 +26,15 @@ class JSONStreamHandler(logging.StreamHandler):
 
   def emit(self, record):
     try:
-      pass # implement here
+      msg = super().format(record)
+      data = {
+        'message': msg,
+        'severity': self.level,
+        'name': 'emailservice'
+      }
+      stream = self.stream
+      stream.write(json.dumps(data))
+      self.flush()
     except (KeyboardInterrupt, SystemExit):
       raise
     except:
