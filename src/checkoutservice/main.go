@@ -81,13 +81,13 @@ func main() {
 	mr.Labels["project_id"] = projectID
 	clusterName, err := metadata.InstanceAttributeValue("cluster-name")
 	if err != nil {
-		fmt.Printf("! Google Cloud: Failed to get cluster_name from meta data server: %v\n", err)
+		log.Fatalf("! Google Cloud: Failed to get cluster_name from meta data server: %v\n", err)
 		return
 	}
 	mr.Labels["cluster_name"] = clusterName
 	clusterLocation, err := metadata.InstanceAttributeValue("cluster-location")
 	if err != nil {
-		fmt.Printf("! Google Cloud:Failed to get cluster_location from meta data server: %v\n", err)
+		log.Fatalf("! Google Cloud:Failed to get cluster_location from meta data server: %v\n", err)
 		return
 	}
 	mr.Labels["location"] = clusterLocation
