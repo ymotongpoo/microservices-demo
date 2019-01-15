@@ -33,7 +33,7 @@ import (
 	mrpb "google.golang.org/genproto/googleapis/api/monitoredres"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
-        "cloud.google.com/go/compute/metadata"
+	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/logging"
 	"cloud.google.com/go/profiler"
 	"contrib.go.opencensus.io/exporter/stackdriver"
@@ -80,7 +80,7 @@ func main() {
 	}
 	mr.Labels["namespace_name"] = os.Getenv("POD_NAMESPACE")
 	mr.Labels["pod_name"] = os.Getenv("POD_NAME")
-	mr.Labels["container_name"] = "checoutservice-container"
+	mr.Labels["container_name"] = "productcatalog-container"
 	mr.Labels["project_id"] = projectID
 	clusterName, err := metadata.InstanceAttributeValue("cluster-name")
 	if err != nil {
@@ -107,21 +107,21 @@ func main() {
 			logger.Log(logging.Entry{
 				Severity: logging.Info,
 				Payload:  fmt.Sprintf("Received signal: %s", sig),
-				Resource:  mr,
+				Resource: mr,
 			})
 			if sig == syscall.SIGUSR1 {
 				reloadCatalog = true
 				logger.Log(logging.Entry{
 					Severity: logging.Info,
 					Payload:  "Enable catalog reloading",
-					Resource:  mr,
+					Resource: mr,
 				})
 			} else {
 				reloadCatalog = false
 				logger.Log(logging.Entry{
 					Severity: logging.Info,
 					Payload:  "Disable catalog reloading",
-					Resource:  mr,
+					Resource: mr,
 				})
 			}
 		}
@@ -130,7 +130,7 @@ func main() {
 	logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  fmt.Sprintf("starting grpc server at :%d", *port),
-		Resource:  mr,
+		Resource: mr,
 	})
 	run(*port)
 	select {}
@@ -142,7 +142,7 @@ func run(port int) string {
 		logger.Log(logging.Entry{
 			Severity: logging.Critical,
 			Payload:  err.Error(),
-			Resource:  mr,
+			Resource: mr,
 		})
 	}
 	srv := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
@@ -160,13 +160,13 @@ func initStats(exporter *stackdriver.Exporter) {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  "Error registering default server views",
-			Resource:  mr,
+			Resource: mr,
 		})
 	} else {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  "Registered default server views",
-			Resource:  mr,
+			Resource: mr,
 		})
 	}
 }
@@ -180,7 +180,7 @@ func initTracing() {
 			logger.Log(logging.Entry{
 				Severity: logging.Warning,
 				Payload:  fmt.Sprintf("failed to initialize stackdriver exporter: %+v", err),
-				Resource:  mr,
+				Resource: mr,
 			})
 		} else {
 			trace.RegisterExporter(exporter)
@@ -188,7 +188,7 @@ func initTracing() {
 			logger.Log(logging.Entry{
 				Severity: logging.Info,
 				Payload:  "registered stackdriver tracing",
-				Resource:  mr,
+				Resource: mr,
 			})
 
 			// Register the views to collect server stats.
@@ -199,14 +199,14 @@ func initTracing() {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  fmt.Sprintf("sleeping %v to retry initializing stackdriver exporter", d),
-			Resource:  mr,
+			Resource: mr,
 		})
 		time.Sleep(d)
 	}
 	logger.Log(logging.Entry{
 		Severity: logging.Warning,
 		Payload:  "could not initialize stackdriver exporter after retrying, giving up",
-		Resource:  mr,
+		Resource: mr,
 	})
 }
 
@@ -223,13 +223,13 @@ func initProfiling(service, version string) {
 			logger.Log(logging.Entry{
 				Severity: logging.Warning,
 				Payload:  fmt.Sprintf("failed to start profiler: %+v", err),
-				Resource:  mr,
+				Resource: mr,
 			})
 		} else {
 			logger.Log(logging.Entry{
 				Severity: logging.Info,
 				Payload:  "started stackdriver profiler",
-				Resource:  mr,
+				Resource: mr,
 			})
 			return
 		}
@@ -237,13 +237,13 @@ func initProfiling(service, version string) {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  fmt.Sprintf("sleeping %v to retry initializing stackdriver profiler", d),
-			Resource:  mr,
+			Resource: mr,
 		})
 	}
 	logger.Log(logging.Entry{
 		Severity: logging.Warning,
 		Payload:  "could not initialize stackdriver profiler after retrying, giving up",
-		Resource:  mr,
+		Resource: mr,
 	})
 }
 
@@ -257,7 +257,7 @@ func readCatalogFile(catalog *pb.ListProductsResponse) error {
 		logger.Log(logging.Entry{
 			Severity: logging.Critical,
 			Payload:  fmt.Sprintf("failed to open product catalog json file: %v", err),
-			Resource:  mr,
+			Resource: mr,
 		})
 		return err
 	}
@@ -265,14 +265,14 @@ func readCatalogFile(catalog *pb.ListProductsResponse) error {
 		logger.Log(logging.Entry{
 			Severity: logging.Warning,
 			Payload:  fmt.Sprintf("failed to parse the catalog JSON: %v", err),
-			Resource:  mr,
+			Resource: mr,
 		})
 		return err
 	}
 	logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  "successfully parsed product catalog json",
-		Resource:  mr,
+		Resource: mr,
 	})
 	return nil
 }

@@ -62,7 +62,7 @@ func main() {
 	}
 	mr.Labels["namespace_name"] = os.Getenv("POD_NAMESPACE")
 	mr.Labels["pod_name"] = os.Getenv("POD_NAME")
-	mr.Labels["container_name"] = "checoutservice-container"
+	mr.Labels["container_name"] = "shipping-container"
 	mr.Labels["project_id"] = projectID
 	clusterName, err := metadata.InstanceAttributeValue("cluster-name")
 	if err != nil {
