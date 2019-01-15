@@ -28,19 +28,18 @@ import demo_pb2_grpc
 from grpc_health.v1 import health_pb2
 from grpc_health.v1 import health_pb2_grpc
 
-# from opencensus.trace.ext.grpc import server_interceptor
-# from opencensus.trace.samplers import always_on
-# from opencensus.trace.exporters import stackdriver_exporter
-# from opencensus.trace.exporters import print_exporter
+from opencensus.trace.exporters import stackdriver_exporter
+from opencensus.trace.ext.grpc import server_interceptor
+from opencensus.trace.samplers import always_on
 
 # import googleclouddebugger
 
-# try:
-#     sampler = always_on.AlwaysOnSampler()
-#     exporter = stackdriver_exporter.StackdriverExporter()
-#     tracer_interceptor = server_interceptor.OpenCensusServerInterceptor(sampler, exporter)
-# except:
-#     tracer_interceptor = server_interceptor.OpenCensusServerInterceptor()
+try:
+    sampler = always_on.AlwaysOnSampler()
+    exporter = stackdriver_exporter.StackdriverExporter()
+    tracer_interceptor = server_interceptor.OpenCensusServerInterceptor(sampler, exporter)
+except:
+    tracer_interceptor = server_interceptor.OpenCensusServerInterceptor()
 
 # try:
 #     googleclouddebugger.enable(
@@ -49,6 +48,9 @@ from grpc_health.v1 import health_pb2_grpc
 #     )
 # except:
 #     pass
+
+from logger import getJSONLogger
+logger = getJSONLogger('emailservice-server')
 
 # Loads confirmation email template from file
 env = Environment(
@@ -78,14 +80,14 @@ class EmailService(BaseEmailService):
         "from": {
           "address_spec": from_address,
         },
-        "to": [{ 
-          "address_spec": email_address 
+        "to": [{
+          "address_spec": email_address
         }],
         "subject": "Your Confirmation Email",
         "html_body": content
       }
     )
-    print("Message sent: {}".format(response.rfc822_message_id))
+    logger.info("Message sent: {}".format(response.rfc822_message_id))
 
   def SendOrderConfirmation(self, request, context):
     email = request.email
@@ -95,7 +97,7 @@ class EmailService(BaseEmailService):
       confirmation = template.render(order = order)
     except TemplateError as err:
       context.set_details("An error occurred when preparing the confirmation mail.")
-      print(err.message)
+      logger.error(err.message)
       context.set_code(grpc.StatusCode.INTERNAL)
       return demo_pb2.Empty()
 
@@ -111,7 +113,7 @@ class EmailService(BaseEmailService):
 
 class DummyEmailService(BaseEmailService):
   def SendOrderConfirmation(self, request, context):
-    print('A request to send order confirmation email to {} has been received.'.format(request.email))
+    logger.info('A request to send order confirmation email to {} has been received.'.format(request.email))
     return demo_pb2.Empty()
 
 class HealthCheck():
@@ -120,7 +122,8 @@ class HealthCheck():
       status=health_pb2.HealthCheckResponse.SERVING)
 
 def start(dummy_mode):
-  server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))#, interceptors=(tracer_interceptor,))
+  server = grpc.server(futures.ThreadPoolExecutor(max_workers=10),
+                       interceptors=(tracer_interceptor,))
   service = None
   if dummy_mode:
     service = DummyEmailService()
@@ -131,7 +134,7 @@ def start(dummy_mode):
   health_pb2_grpc.add_HealthServicer_to_server(service, server)
 
   port = os.environ.get('PORT', "8080")
-  print("listening on port: "+port)
+  logger.info("listening on port: "+port)
   server.add_insecure_port('[::]:'+port)
   server.start()
   try:
@@ -142,5 +145,5 @@ def start(dummy_mode):
 
 
 if __name__ == '__main__':
-  print('starting the email service in dummy mode.')
+  logger.info('starting the email service in dummy mode.')
   start(dummy_mode = True)

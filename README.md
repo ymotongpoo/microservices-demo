@@ -5,13 +5,18 @@ web-based e-commerce app called **“Hipster Shop”** where users can browse it
 add them to the cart, and purchase them.
 
 **Google uses this application to demonstrate Kubernetes, GKE, Istio,
-Stackdriver, gRPC** and similar cloud-native technologies nowadays.
+Stackdriver, gRPC, OpenCensus** and similar cloud-native technologies.
+
+> **Note to Googlers:** Please fill out the form at
+[go/microservices-demo](http://go/microservices-demo) if you are using this
+application.
+
 
 ## Screenshots
 
 | Home Page | Checkout Screen |
 |-----------|-----------------|
-| [![Screenshot of store homepage](./img/hipster-shop-frontend-1.png)](./img/hipster-shop-frontend-1.png) | [![Screenshot of checkout screen](./img/hipster-shop-frontend-2.png)](./img/hipster-shop-frontend-2.png) |
+| [![Screenshot of store homepage](./docs/img/hipster-shop-frontend-1.png)](./docs/img/hipster-shop-frontend-1.png) | [![Screenshot of checkout screen](./docs/img/hipster-shop-frontend-2.png)](./docs/img/hipster-shop-frontend-2.png) |
 
 ## Service Architecture
 
@@ -19,7 +24,7 @@ Stackdriver, gRPC** and similar cloud-native technologies nowadays.
 languages that talk to each other over gRPC.
 
 [![Architecture of
-microservices](./img/architecture-diagram.png)](./img/architecture-diagram.png)
+microservices](./docs/img/architecture-diagram.png)](./docs/img/architecture-diagram.png)
 
 Find **Protocol Buffers Descriptions** at the [`./pb` directory](./pb).
 
@@ -99,37 +104,40 @@ Find **Protocol Buffers Descriptions** at the [`./pb` directory](./pb).
         gcloud services enable container.googleapis.com
 
         gcloud container clusters create demo --enable-autoupgrade \
-            --enable-autoscaling --min-nodes=3 --max-nodes=10 --num-nodes=5
+            --enable-autoscaling --min-nodes=3 --max-nodes=10 --num-nodes=5 --zone=us-central1-a
 
         kubectl get nodes
 
-2. Enable Google Container Registry (GCR) on your GCP project and configure the
+1. Enable Google Container Registry (GCR) on your GCP project and configure the
    `docker` CLI to authenticate to GCR:
 
        gcloud services enable containerregistry.googleapis.com
 
        gcloud auth configure-docker -q
 
-3. Set your project ID on image names:
-
-    - Edit `skaffold.yaml`, update the `imageName:` fields that look like
-      `gcr.io/[PROJECT_ID]` with your own GCP project ID.
-
-    - Similarly, edit all Kubernetes Deployment manifests in the
-      [`./kubernetes-manifests`](./kubernetes-manifests) directory. Find the
-      `image:` fields with `gcr.io/[...]` and change them to your own GCP project
-      ID.
-
-5. Run `skaffold run` from the root of this repository. This command:
+1. In the root of this repository, run `skaffold run --default-repo=gcr.io/[PROJECT_ID]`,
+   where [PROJECT_ID] is your GCP project ID.
+   
+   This command:
    - builds the container images
    - pushes them to GCR
    - applies the `./kubernetes-manifests` deploying the application to
      Kubernetes.
 
-6.  Find the IP address of your application, then visit the application on your
+   **Troubleshooting:** If you get "No space left on device" error on Google Cloud Shell,
+   you can build the images on Google Cloud Build:
+   [Enable the Cloud Build API](https://console.cloud.google.com/flows/enableapi?apiid=cloudbuild.googleapis.com), then run `skaffold run -p gcb  --default-repo=gcr.io/[PROJECT_ID]` instead.
+
+1.  Find the IP address of your application, then visit the application on your
     browser to confirm installation.
 
         kubectl get service frontend-external
+
+    **Troubleshooting:** A Kubernetes bug (will be fixed in 1.12) combined with
+    a Skaffold [bug](https://github.com/GoogleContainerTools/skaffold/issues/887)
+    causes load balancer to not to work even after getting an IP address. If you
+    are seeing this, run `kubectl get service frontend-external -o=yaml | kubectl apply -f-`
+    to trigger load balancer reconfiguration.
 
 ### (Optional) Deploying on a Istio-installed cluster
 
@@ -138,8 +146,14 @@ Find **Protocol Buffers Descriptions** at the [`./pb` directory](./pb).
 
 1. Create a GKE cluster.
 
-2. Install Istio **without mutual TLS** option. (Istio mTLS is not yet supported
-   on this demo.)
+2. Install Istio **without mutual TLS** authentication option.
+
+   > (Optional) If you'd like to enable mTLS in the demo app, you need to
+   > make a few changes to the deployment manifests:
+   >
+   > - `kubernetes-manifests/frontend.yaml`: delete "livenessProbe" and
+   >   "readinessProbe" fields.
+   > - `kubernetes-manifests/loadgenerator.yaml`: delete "initContainers" field.
 
 3. Install the automatic sidecar injection (annotate the `default` namespace
    with the label):
@@ -152,7 +166,7 @@ Find **Protocol Buffers Descriptions** at the [`./pb` directory](./pb).
 
     This is required only once.
 
-5. Deploy the application with `skaffold run`.
+5. Deploy the application with `skaffold run --default-repo=gcr.io/[PROJECT_ID]`.
 
 6. Run `kubectl get pods` to see pods are in a healthy and ready state.
 
@@ -165,10 +179,14 @@ Find **Protocol Buffers Descriptions** at the [`./pb` directory](./pb).
 
        curl -v "http://$INGRESS_HOST"
 
+## Conferences featuring Hipster Shop 
+
+- [Google Cloud Next'18 London – Keynote](https://youtu.be/nIq2pkNcfEI?t=3071) showing Stackdriver Incident Response Management
+- Google Cloud Next'18 SF
+  - [Day 1  Keynote](https://youtu.be/vJ9OaAqfxo4?t=2416) showing GKE On-Prem
+  - [Day 3 – Keynote](https://youtu.be/JQPOPV_VH5w?t=815) showing Stackdriver APM (Tracing, Code Search, Profiler, Google Cloud Build)
+  - [Introduction to Service Management with Istio](https://www.youtube.com/watch?v=wCJrdKdD6UM&feature=youtu.be&t=586)
+
 ---
 
-**Note to fellow Googlers:** Please fill out the form at
-[go/microservices-demo](http://go/microservices-demo) if you are using this
-application.
-
-This is not an official Google project.
+This is not an official Google project. 
