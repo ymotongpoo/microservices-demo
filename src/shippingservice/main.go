@@ -24,7 +24,6 @@ import (
 	"cloud.google.com/go/logging"
 	"cloud.google.com/go/profiler"
 	"contrib.go.opencensus.io/exporter/stackdriver"
-	"github.com/sirupsen/logrus"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
@@ -46,7 +45,7 @@ var logger *logging.Logger
 
 func init() {
 	ctx := context.Background()
-	client, err := logging.NewClient(projectID)
+	client, err := logging.NewClient(ctx, projectID)
 	if err != nil {
 		log.Fatalf("Could not create Stackdriver Logging client: %v", err)
 	}
@@ -67,7 +66,7 @@ func main() {
 	if err != nil {
 		logger.Log(logging.Entry{
 			Severity: logging.Critical,
-			Payload: fmt.Sprintf("failed to listen: %v", err)
+			Payload: fmt.Sprintf("failed to listen: %v", err),
 		})
 	}
 	srv := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
@@ -76,7 +75,7 @@ func main() {
 	healthpb.RegisterHealthServer(srv, svc)
 	logger.Log(logging.Entry{
 		Severity: logging.Info,
-		Payload: fmt.Sprintf("Shipping Service listening on port %s", port
+		Payload: fmt.Sprintf("Shipping Service listening on port %s", port),
 	})
 
 	// Register reflection service on gRPC server.
@@ -84,7 +83,7 @@ func main() {
 	if err := srv.Serve(lis); err != nil {
 		logger.Log(logging.Entry{
 			Severity: logging.Critical,
-			Payload: fmt.Sprintf("failed to serve: %v", err)
+			Payload: fmt.Sprintf("failed to serve: %v", err),
 		})
 	}
 }
