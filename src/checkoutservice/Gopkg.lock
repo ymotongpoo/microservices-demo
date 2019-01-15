@@ -2,11 +2,14 @@
 
 
 [[projects]]
-  digest = "1:467af0aad47996b25b838d6f14c8371123a8a76ec239020a6c5894e1f8f60272"
+  digest = "1:52900b7e8fc03fd22b6bd2c72373b8a314ac1040bda6fa6d3324d37e8f35bc42"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
     "internal/version",
+    "logging",
+    "logging/apiv2",
+    "logging/internal",
     "monitoring/apiv3",
     "profiler",
     "trace/apiv2",
@@ -251,7 +254,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3552e7267a98c605e6cbfe6b03c34589265ab72e6078b95fb2e10e0cb44f5cc8"
+  digest = "1:6b9ba2aa9dff01b677c6111c074419982d31bb4eb45d5c84a60499fca96150ee"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api/annotations",
@@ -261,6 +264,8 @@
     "googleapis/api/monitoredres",
     "googleapis/devtools/cloudprofiler/v2",
     "googleapis/devtools/cloudtrace/v2",
+    "googleapis/logging/type",
+    "googleapis/logging/v2",
     "googleapis/monitoring/v3",
     "googleapis/rpc/errdetails",
     "googleapis/rpc/status",
@@ -310,6 +315,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "cloud.google.com/go/logging",
     "cloud.google.com/go/profiler",
     "contrib.go.opencensus.io/exporter/stackdriver",
     "github.com/GoogleCloudPlatform/microservices-demo/src/checkoutservice/genproto",
