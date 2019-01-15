@@ -345,7 +345,7 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 			Severity: logging.Info,
 			Payload:  fmt.Sprintf("order confirmation email sent to %q", req.Email),
 			Resource: mr,
-		}
+		})
 	}
 	resp := &pb.PlaceOrderResponse{Order: orderResult}
 	return resp, nil
