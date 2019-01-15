@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+        "log"
 	"net"
 	"os"
 	"os/signal"
@@ -63,7 +64,7 @@ func main() {
 	}
 	logger = client.Logger("productcatalog-logger")
 	catalogMutex = &sync.Mutex{}
-	err := readCatalogFile(&cat)
+	err = readCatalogFile(&cat)
 	if err != nil {
 		logger.Log(logging.Entry{
 			Severity: logging.Warning,
@@ -165,7 +166,7 @@ func initTracing() {
 		d := time.Second * 10 * time.Duration(i)
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
-			Payload:  fmt.Printf("sleeping %v to retry initializing stackdriver exporter", d),
+			Payload:  fmt.Sprintf("sleeping %v to retry initializing stackdriver exporter", d),
 		})
 		time.Sleep(d)
 	}
@@ -199,7 +200,7 @@ func initProfiling(service, version string) {
 		d := time.Second * 10 * time.Duration(i)
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
-			Payload:  fmt.Printf("sleeping %v to retry initializing stackdriver profiler", d),
+			Payload:  fmt.Sprintf("sleeping %v to retry initializing stackdriver profiler", d),
 		})
 	}
 	logger.Log(logging.Entry{
@@ -217,14 +218,14 @@ func readCatalogFile(catalog *pb.ListProductsResponse) error {
 	if err != nil {
 		logger.Log(logging.Entry{
 			Severity: logging.Critical,
-			Payload:  fmt.Printf("failed to open product catalog json file: %v", err),
+			Payload:  fmt.Sprintf("failed to open product catalog json file: %v", err),
 		})
 		return err
 	}
 	if err := jsonpb.Unmarshal(bytes.NewReader(catalogJSON), catalog); err != nil {
 		logger.Log(logging.Entry{
 			Severity: logging.Warning,
-			Payload:  fmt.Printf("failed to parse the catalog JSON: %v", err),
+			Payload:  fmt.Sprintf("failed to parse the catalog JSON: %v", err),
 		})
 		return err
 	}
