@@ -21,6 +21,7 @@ import (
 	"os"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/logging"
 	"cloud.google.com/go/profiler"
 	"contrib.go.opencensus.io/exporter/stackdriver"
@@ -32,6 +33,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	pb "github.com/GoogleCloudPlatform/microservices-demo/src/shippingservice/genproto"
+	mrpb "google.golang.org/genproto/googleapis/api/monitoredres"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -41,7 +43,10 @@ const (
 	projectID = "yoshifumi-cloud-demo/shipping"
 )
 
-var logger *logging.Logger
+var (
+	logger *logging.Logger
+	mr     *mrpg.MonitoredResource
+)
 
 func main() {
 	ctx := context.Background()
@@ -50,6 +55,27 @@ func main() {
 		log.Fatalf("Could not create Stackdriver Logging client: %v", err)
 	}
 	logger = client.Logger("shipping-logger")
+
+	mr = &mrpb.MonitoredResource{
+		Type:   "k8s_container",
+		Labels: make(map[string]string),
+	}
+	mr.Labels["namespace_name"] = os.Getenv("POD_NAMESPACE")
+	mr.Labels["pod_name"] = os.Getenv("POD_NAME")
+	mr.Labels["container_name"] = "checoutservice-container"
+	mr.Labels["project_id"] = projectID
+	clusterName, err := metadata.InstanceAttributeValue("cluster-name")
+	if err != nil {
+		log.Fatalf("! Google Cloud: Failed to get cluster_name from meta data server: %v\n", err)
+		return
+	}
+	mr.Labels["cluster_name"] = clusterName
+	clusterLocation, err := metadata.InstanceAttributeValue("cluster-location")
+	if err != nil {
+		log.Fatalf("! Google Cloud:Failed to get cluster_location from meta data server: %v\n", err)
+		return
+	}
+	mr.Labels["location"] = clusterLocation
 
 	go initTracing()
 	go initProfiling("shippingservice", "1.0.0")
@@ -65,6 +91,7 @@ func main() {
 		logger.Log(logging.Entry{
 			Severity: logging.Critical,
 			Payload:  fmt.Sprintf("failed to listen: %v", err),
+			Resource: mr,
 		})
 	}
 	srv := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
@@ -74,6 +101,7 @@ func main() {
 	logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  fmt.Sprintf("Shipping Service listening on port %s", port),
+		Resource: mr,
 	})
 
 	// Register reflection service on gRPC server.
@@ -82,6 +110,7 @@ func main() {
 		logger.Log(logging.Entry{
 			Severity: logging.Critical,
 			Payload:  fmt.Sprintf("failed to serve: %v", err),
+			Resource: mr,
 		})
 	}
 }
@@ -99,10 +128,12 @@ func (s *server) GetQuote(ctx context.Context, in *pb.GetQuoteRequest) (*pb.GetQ
 	logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  "[GetQuote] received request",
+		Resource: mr,
 	})
 	defer logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  "[GetQuote] completed request",
+		Resource: mr,
 	})
 
 	// 1. Our quote system requires the total number of items to be shipped.
@@ -130,10 +161,12 @@ func (s *server) ShipOrder(ctx context.Context, in *pb.ShipOrderRequest) (*pb.Sh
 	logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  "[ShipOrder] received request",
+		Resource: mr,
 	})
 	defer logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  "[ShipOrder] completed request",
+		Resource: mr,
 	})
 	// 1. Create a Tracking ID
 	baseAddress := fmt.Sprintf("%s, %s, %s", in.Address.StreetAddress, in.Address.City, in.Address.State)
@@ -152,11 +185,13 @@ func initStats(exporter *stackdriver.Exporter) {
 		logger.Log(logging.Entry{
 			Severity: logging.Warning,
 			Payload:  "Error registering default server views",
+			Resource: mr,
 		})
 	} else {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  "Registered default server views",
+			Resource: mr,
 		})
 	}
 }
@@ -170,6 +205,7 @@ func initTracing() {
 			logger.Log(logging.Entry{
 				Severity: logging.Warning,
 				Payload:  fmt.Sprintf("failed to initialize stackdriver exporter: %+v", err),
+				Resource: mr,
 			})
 		} else {
 			trace.RegisterExporter(exporter)
@@ -177,6 +213,7 @@ func initTracing() {
 			logger.Log(logging.Entry{
 				Severity: logging.Info,
 				Payload:  "registered stackdriver tracing",
+				Resource: mr,
 			})
 
 			// Register the views to collect server stats.
@@ -187,12 +224,14 @@ func initTracing() {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  fmt.Sprintf("sleeping %v to retry initializing stackdriver exporter", d),
+			Resource: mr,
 		})
 		time.Sleep(d)
 	}
 	logger.Log(logging.Entry{
 		Severity: logging.Warning,
 		Payload:  "could not initialize stackdriver exporter after retrying, giving up",
+		Resource: mr,
 	})
 }
 
@@ -209,11 +248,13 @@ func initProfiling(service, version string) {
 			logger.Log(logging.Entry{
 				Severity: logging.Warning,
 				Payload:  fmt.Sprintf("failed to start profiler: %+v", err),
+				Resource: mr,
 			})
 		} else {
 			logger.Log(logging.Entry{
 				Severity: logging.Info,
 				Payload:  "started stackdriver profiler",
+				Resource: mr,
 			})
 			return
 		}
@@ -221,11 +262,13 @@ func initProfiling(service, version string) {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  fmt.Sprintf("sleeping %v to retry initializing stackdriver profiler", d),
+			Resource: mr,
 		})
 		time.Sleep(d)
 	}
 	logger.Log(logging.Entry{
 		Severity: logging.Warning,
 		Payload:  "could not initialize stackdriver profiler after retrying, giving up",
+		Resource: mr,
 	})
 }
