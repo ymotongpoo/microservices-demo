@@ -24,6 +24,7 @@ import (
 
 	"cloud.google.com/go/logging"
 	"cloud.google.com/go/profiler"
+	"cloud.google.com/go/compute/metadata"
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/google/uuid"
 	_ "github.com/sirupsen/logrus"
@@ -31,6 +32,7 @@ import (
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/trace"
+	mrpb "google.golang.org/genproto/googleapis/api/monitoredres"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -44,10 +46,13 @@ const (
 	listenPort  = "5050"
 	usdCurrency = "USD"
 
-	projectID = "yoshifumi-cloud-demo/checkout"
+	projectID = "yoshifumi-cloud-demo"
 )
 
-var logger *logging.Logger
+var (
+	logger *logging.Logger
+	mr *mrpb.MonitoredResource
+)
 
 type checkoutService struct {
 	productCatalogSvcAddr string
@@ -65,6 +70,27 @@ func main() {
 		log.Fatalf("Failed to initialize Cloud Logging: %v", err)
 	}
 	logger = client.Logger("checkout-logger")
+
+	mr = &mrpb.MonitoredResource{
+		Type:   "k8s_container",
+		Labels: make(map[string]string),
+	}
+	mr.Labels["namespace_name"] = os.Getenv("POD_NAMESPACE")
+	mr.Labels["pod_name"] = os.Getenv("POD_NAME")
+	mr.Labels["container_name"] = "checoutservice-container"
+	mr.Labels["project_id"] = projectID
+	clusterName, err := metadata.InstanceAttributeValue("cluster-name")
+	if err != nil {
+		fmt.Printf("! Google Cloud: Failed to get cluster_name from meta data server: %v\n", err)
+		return
+	}
+	mr.Labels["cluster_name"] = clusterName
+	clusterLocation, err := metadata.InstanceAttributeValue("cluster-location")
+	if err != nil {
+		fmt.Printf("! Google Cloud:Failed to get cluster_location from meta data server: %v\n", err)
+		return
+	}
+	mr.Labels["location"] = clusterLocation
 
 	go initTracing()
 	go initProfiling("checkoutservice", "1.0.0")
@@ -85,6 +111,7 @@ func main() {
 	logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  fmt.Sprintf("service config: %+v", svc),
+		Resource: mr,
 	})
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
@@ -92,6 +119,7 @@ func main() {
 		logger.Log(logging.Entry{
 			Severity: logging.Critical,
 			Payload:  fmt.Sprintf("service config: %+v", svc),
+			Resource: mr,
 		})
 	}
 	srv := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
@@ -100,11 +128,13 @@ func main() {
 	logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  fmt.Sprintf("starting to listen on tcp: %q", lis.Addr().String()),
+		Resource: mr,
 	})
 	err = srv.Serve(lis)
 	logger.Log(logging.Entry{
 		Severity: logging.Critical,
 		Payload:  err.Error(),
+		Resource: mr,
 	})
 }
 
@@ -114,6 +144,7 @@ func initJaegerTracing() {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  "jaeger initialization disabled.",
+			Resource: mr,
 		})
 		return
 	}
@@ -130,12 +161,14 @@ func initJaegerTracing() {
 		logger.Log(logging.Entry{
 			Severity: logging.Critical,
 			Payload:  err.Error(),
+			Resource: mr,
 		})
 	}
 	trace.RegisterExporter(exporter)
 	logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  "jaeger initialization completed.",
+		Resource: mr,
 	})
 }
 
@@ -146,11 +179,13 @@ func initStats(exporter *stackdriver.Exporter) {
 		logger.Log(logging.Entry{
 			Severity: logging.Warning,
 			Payload:  "Error registering default server views",
+			Resource: mr,
 		})
 	} else {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  "Registered default server views",
+			Resource: mr,
 		})
 	}
 }
@@ -164,12 +199,14 @@ func initStackDriverTracing() {
 			logger.Log(logging.Entry{
 				Severity: logging.Info,
 				Payload:  fmt.Sprintf("failed to initialize stackdriver exporter: %+v", err),
+				Resource: mr,
 			})
 		} else {
 			trace.RegisterExporter(exporter)
 			logger.Log(logging.Entry{
 				Severity: logging.Info,
 				Payload:  "registered stackdriver tracing",
+				Resource: mr,
 			})
 
 			// Register the views to collect server stats.
@@ -180,6 +217,7 @@ func initStackDriverTracing() {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  fmt.Sprintf("sleeping %v to retry initializing stackdriver exporter", d),
+			Resource: mr,
 		})
 
 		time.Sleep(d)
@@ -187,6 +225,7 @@ func initStackDriverTracing() {
 	logger.Log(logging.Entry{
 		Severity: logging.Warning,
 		Payload:  "could not initialize stackdriver exporter after retrying, giving up",
+		Resource: mr,
 	})
 }
 
@@ -208,11 +247,13 @@ func initProfiling(service, version string) {
 			logger.Log(logging.Entry{
 				Severity: logging.Warning,
 				Payload:  fmt.Sprintf("failed to start profiler: %+v", err),
+				Resource: mr,
 			})
 		} else {
 			logger.Log(logging.Entry{
 				Severity: logging.Info,
 				Payload:  "started stackdriver profiler",
+				Resource: mr,
 			})
 			return
 		}
@@ -220,12 +261,14 @@ func initProfiling(service, version string) {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  fmt.Sprintf("sleeping %v to retry initializing stackdriver profiler", d),
+			Resource: mr,
 		})
 		time.Sleep(d)
 	}
 	logger.Log(logging.Entry{
 		Severity: logging.Warning,
 		Payload:  "could not initialize stackdriver profiler after retrying, giving up",
+		Resource: mr,
 	})
 }
 
@@ -245,6 +288,7 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 	logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  fmt.Sprintf("[PlaceOrder] user_id=%q user_currency=%q", req.UserId, req.UserCurrency),
+		Resource: mr,
 	})
 
 	orderID, err := uuid.NewUUID()
@@ -272,6 +316,7 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 	logger.Log(logging.Entry{
 		Severity: logging.Info,
 		Payload:  fmt.Sprintf("payment went through (transaction_id: %s)", txID),
+		Resource: mr,
 	})
 
 	shippingTrackingID, err := cs.shipOrder(ctx, req.Address, prep.cartItems)
@@ -293,11 +338,13 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 		logger.Log(logging.Entry{
 			Severity: logging.Warning,
 			Payload:  fmt.Sprintf("failed to send order confirmation to %q: %+v", req.Email, err),
+			Resource: mr,
 		})
 	} else {
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  fmt.Sprintf("order confirmation email sent to %q", req.Email),
+			Resource: mr,
 		}
 	}
 	resp := &pb.PlaceOrderResponse{Order: orderResult}
