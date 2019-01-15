@@ -16,10 +16,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"time"
 
+	"cloud.google.com/go/logging"
 	"cloud.google.com/go/profiler"
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/sirupsen/logrus"
@@ -36,22 +38,19 @@ import (
 
 const (
 	defaultPort = "50051"
+
+	projectID = "yoshifumi-cloud-demo/shipping"
 )
 
-var log *logrus.Logger
+var logger *logging.Logger
 
 func init() {
-	log = logrus.New()
-	log.Level = logrus.DebugLevel
-	log.Formatter = &logrus.JSONFormatter{
-		FieldMap: logrus.FieldMap{
-			logrus.FieldKeyTime:  "timestamp",
-			logrus.FieldKeyLevel: "severity",
-			logrus.FieldKeyMsg:   "message",
-		},
-		TimestampFormat: time.RFC3339Nano,
+	ctx := context.Background()
+	client, err := logging.NewClient(projectID)
+	if err != nil {
+		log.Fatalf("Could not create Stackdriver Logging client: %v", err)
 	}
-	log.Out = os.Stdout
+	logger = client.Logger("shipping-logger")
 }
 
 func main() {
@@ -66,18 +65,27 @@ func main() {
 
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		logger.Log(logging.Entry{
+			Severity: logging.Critical,
+			Payload: fmt.Sprintf("failed to listen: %v", err)
+		})
 	}
 	srv := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
 	svc := &server{}
 	pb.RegisterShippingServiceServer(srv, svc)
 	healthpb.RegisterHealthServer(srv, svc)
-	log.Infof("Shipping Service listening on port %s", port)
+	logger.Log(logging.Entry{
+		Severity: logging.Info,
+		Payload: fmt.Sprintf("Shipping Service listening on port %s", port
+	})
 
 	// Register reflection service on gRPC server.
 	reflection.Register(srv)
 	if err := srv.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		logger.Log(logging.Entry{
+			Severity: logging.Critical,
+			Payload: fmt.Sprintf("failed to serve: %v", err)
+		})
 	}
 }
 
@@ -91,8 +99,14 @@ func (s *server) Check(ctx context.Context, req *healthpb.HealthCheckRequest) (*
 
 // GetQuote produces a shipping quote (cost) in USD.
 func (s *server) GetQuote(ctx context.Context, in *pb.GetQuoteRequest) (*pb.GetQuoteResponse, error) {
-	log.Info("[GetQuote] received request")
-	defer log.Info("[GetQuote] completed request")
+	logger.Log(logging.Entry{
+		Severity: logging.Info,
+		Payload: "[GetQuote] received request",
+	})
+	defer logger.Log(logging.Entry{
+		Severity: logging.Info,
+		Payload: "[GetQuote] completed request",
+	})
 
 	// 1. Our quote system requires the total number of items to be shipped.
 	count := 0
@@ -116,8 +130,14 @@ func (s *server) GetQuote(ctx context.Context, in *pb.GetQuoteRequest) (*pb.GetQ
 // ShipOrder mocks that the requested items will be shipped.
 // It supplies a tracking ID for notional lookup of shipment delivery status.
 func (s *server) ShipOrder(ctx context.Context, in *pb.ShipOrderRequest) (*pb.ShipOrderResponse, error) {
-	log.Info("[ShipOrder] received request")
-	defer log.Info("[ShipOrder] completed request")
+	logger.Log(logging.Entry{
+		Severity: logging.Info,
+		Payload: "[ShipOrder] received request",
+	})
+	defer logger.Log(logging.Entry{
+		Severity: logging.Info,
+		Payload: "[ShipOrder] completed request",
+	})
 	// 1. Create a Tracking ID
 	baseAddress := fmt.Sprintf("%s, %s, %s", in.Address.StreetAddress, in.Address.City, in.Address.State)
 	id := CreateTrackingId(baseAddress)
@@ -132,9 +152,15 @@ func initStats(exporter *stackdriver.Exporter) {
 	view.SetReportingPeriod(60 * time.Second)
 	view.RegisterExporter(exporter)
 	if err := view.Register(ocgrpc.DefaultServerViews...); err != nil {
-		log.Warn("Error registering default server views")
+		logger.Log(logging.Entry{
+			Severity: logging.Warning,
+			Payload: "Error registering default server views",
+		})
 	} else {
-		log.Info("Registered default server views")
+		logger.Log(logging.Entry{
+			Severity: logging.Info,
+			Payload: "Registered default server views",
+		})
 	}
 }
 
@@ -144,21 +170,33 @@ func initTracing() {
 	for i := 1; i <= 3; i++ {
 		exporter, err := stackdriver.NewExporter(stackdriver.Options{})
 		if err != nil {
-			log.Warnf("failed to initialize stackdriver exporter: %+v", err)
+			logger.Log(logging.Entry{
+				Severity: logging.Warning,
+				Payload: fmt.Sprintf("failed to initialize stackdriver exporter: %+v", err),
+			})
 		} else {
 			trace.RegisterExporter(exporter)
 			trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
-			log.Info("registered stackdriver tracing")
+			logger.Log(logging.Entry{
+				Severity: logging.Info,
+				Payload: "registered stackdriver tracing",
+			})
 
 			// Register the views to collect server stats.
 			initStats(exporter)
 			return
 		}
 		d := time.Second * 10 * time.Duration(i)
-		log.Infof("sleeping %v to retry initializing stackdriver exporter", d)
+		logger.Log(logging.Entry{
+			Severity: logging.Info,
+			Payload: fmt.Sprintf("sleeping %v to retry initializing stackdriver exporter", d),
+		})
 		time.Sleep(d)
 	}
-	log.Warn("could not initialize stackdriver exporter after retrying, giving up")
+	logger.Log(logging.Entry{
+		Severity: logging.Warning,
+		Payload: "could not initialize stackdriver exporter after retrying, giving up",
+	})
 }
 
 func initProfiling(service, version string) {
@@ -171,14 +209,26 @@ func initProfiling(service, version string) {
 			// ProjectID must be set if not running on GCP.
 			// ProjectID: "my-project",
 		}); err != nil {
-			log.Warnf("failed to start profiler: %+v", err)
+			logger.Log(logging.Entry{
+				Severity: logging.Warning,
+				Payload: fmt.Sprintf("failed to start profiler: %+v", err),
+			})
 		} else {
-			log.Info("started stackdriver profiler")
+			logger.Log(logging.Entry{
+				Severity: logging.Info,
+				Payload: "started stackdriver profiler",
+			})
 			return
 		}
 		d := time.Second * 10 * time.Duration(i)
-		log.Infof("sleeping %v to retry initializing stackdriver profiler", d)
+		logger.Log(logging.Entry{
+			Severity: logging.Info,
+			Payload: fmt.Sprintf("sleeping %v to retry initializing stackdriver profiler", d),
+		})
 		time.Sleep(d)
 	}
-	log.Warn("could not initialize stackdriver profiler after retrying, giving up")
+	logger.Log(logging.Entry{
+		Severity: logging.Warning,
+		Payload: "could not initialize stackdriver profiler after retrying, giving up",
+	})
 }
