@@ -17,14 +17,16 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"time"
 
+	"cloud.google.com/go/logging"
 	"cloud.google.com/go/profiler"
 	"contrib.go.opencensus.io/exporter/stackdriver"
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
+	_ "github.com/sirupsen/logrus"
 	"go.opencensus.io/exporter/jaeger"
 	"go.opencensus.io/plugin/ocgrpc"
 	"go.opencensus.io/stats/view"
@@ -41,22 +43,19 @@ import (
 const (
 	listenPort  = "5050"
 	usdCurrency = "USD"
+
+	projectID = "yoshifumi-cloud-demo/checkout"
 )
 
-var log *logrus.Logger
+var logger *logging.Logger
 
 func init() {
-	log = logrus.New()
-	log.Level = logrus.DebugLevel
-	log.Formatter = &logrus.JSONFormatter{
-		FieldMap: logrus.FieldMap{
-			logrus.FieldKeyTime:  "timestamp",
-			logrus.FieldKeyLevel: "severity",
-			logrus.FieldKeyMsg:   "message",
-		},
-		TimestampFormat: time.RFC3339Nano,
+	ctx := context.Background()
+	client, err := logging.NewClient(ctx, projectID)
+	if err != nil {
+		log.Fatalf("Failed to initialize Cloud Logging: %v", err)
 	}
-	log.Out = os.Stdout
+	logger = client.Logger("checkout-logger")
 }
 
 type checkoutService struct {
@@ -85,24 +84,39 @@ func main() {
 	mustMapEnv(&svc.emailSvcAddr, "EMAIL_SERVICE_ADDR")
 	mustMapEnv(&svc.paymentSvcAddr, "PAYMENT_SERVICE_ADDR")
 
-	log.Infof("service config: %+v", svc)
+	logger.Log(logging.Entry{
+		Severity: logging.Info,
+		Payload:  fmt.Sprintf("service config: %+v", svc),
+	})
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", port))
 	if err != nil {
-		log.Fatal(err)
+		logger.Log(logging.Entry{
+			Severity: logging.Critical,
+			Payload:  fmt.Sprintf("service config: %+v", svc),
+		})
 	}
 	srv := grpc.NewServer(grpc.StatsHandler(&ocgrpc.ServerHandler{}))
 	pb.RegisterCheckoutServiceServer(srv, svc)
 	healthpb.RegisterHealthServer(srv, svc)
-	log.Infof("starting to listen on tcp: %q", lis.Addr().String())
+	logger.Log(logging.Entry{
+		Severity: logging.Info,
+		Payload:  fmt.Sprintf("starting to listen on tcp: %q", lis.Addr().String()),
+	})
 	err = srv.Serve(lis)
-	log.Fatal(err)
+	logger.Log(logging.Entry{
+		Severity: logging.Critical,
+		Payload:  err.Error(),
+	})
 }
 
 func initJaegerTracing() {
 	svcAddr := os.Getenv("JAEGER_SERVICE_ADDR")
 	if svcAddr == "" {
-		log.Info("jaeger initialization disabled.")
+		logger.Log(logging.Entry{
+			Severity: logging.Info,
+			Payload:  "jaeger initialization disabled.",
+		})
 		return
 	}
 
@@ -115,19 +129,31 @@ func initJaegerTracing() {
 		},
 	})
 	if err != nil {
-		log.Fatal(err)
+		logger.Log(logging.Entry{
+			Severity: logging.Critical,
+			Payload:  err.Error(),
+		})
 	}
 	trace.RegisterExporter(exporter)
-	log.Info("jaeger initialization completed.")
+	logger.Log(logging.Entry{
+		Severity: logging.Info,
+		Payload:  "jaeger initialization completed.",
+	})
 }
 
 func initStats(exporter *stackdriver.Exporter) {
 	view.SetReportingPeriod(60 * time.Second)
 	view.RegisterExporter(exporter)
 	if err := view.Register(ocgrpc.DefaultServerViews...); err != nil {
-		log.Warn("Error registering default server views")
+		logger.Log(logging.Entry{
+			Severity: logging.Warning,
+			Payload:  "Error registering default server views",
+		})
 	} else {
-		log.Info("Registered default server views")
+		logger.Log(logging.Entry{
+			Severity: logging.Info,
+			Payload:  "Registered default server views",
+		})
 	}
 }
 
@@ -137,20 +163,33 @@ func initStackDriverTracing() {
 	for i := 1; i <= 3; i++ {
 		exporter, err := stackdriver.NewExporter(stackdriver.Options{})
 		if err != nil {
-			log.Infof("failed to initialize stackdriver exporter: %+v", err)
+			logger.Log(logging.Entry{
+				Severity: logging.Info,
+				Payload:  fmt.Sprintf("failed to initialize stackdriver exporter: %+v", err),
+			})
 		} else {
 			trace.RegisterExporter(exporter)
-			log.Info("registered stackdriver tracing")
+			logger.Log(logging.Entry{
+				Severity: logging.Info,
+				Payload:  "registered stackdriver tracing",
+			})
 
 			// Register the views to collect server stats.
 			initStats(exporter)
 			return
 		}
 		d := time.Second * 10 * time.Duration(i)
-		log.Infof("sleeping %v to retry initializing stackdriver exporter", d)
+		logger.Log(logging.Entry{
+			Severity: logging.Info,
+			Payload:  fmt.Sprintf("sleeping %v to retry initializing stackdriver exporter", d),
+		})
+
 		time.Sleep(d)
 	}
-	log.Warn("could not initialize stackdriver exporter after retrying, giving up")
+	logger.Log(logging.Entry{
+		Severity: logging.Warning,
+		Payload:  "could not initialize stackdriver exporter after retrying, giving up",
+	})
 }
 
 func initTracing() {
@@ -168,16 +207,28 @@ func initProfiling(service, version string) {
 			// ProjectID must be set if not running on GCP.
 			// ProjectID: "my-project",
 		}); err != nil {
-			log.Warnf("failed to start profiler: %+v", err)
+			logger.Log(logging.Entry{
+				Severity: logging.Warning,
+				Payload:  fmt.Sprintf("failed to start profiler: %+v", err),
+			})
 		} else {
-			log.Info("started stackdriver profiler")
+			logger.Log(logging.Entry{
+				Severity: logging.Info,
+				Payload:  "started stackdriver profiler",
+			})
 			return
 		}
 		d := time.Second * 10 * time.Duration(i)
-		log.Infof("sleeping %v to retry initializing stackdriver profiler", d)
+		logger.Log(logging.Entry{
+			Severity: logging.Info,
+			Payload:  fmt.Sprintf("sleeping %v to retry initializing stackdriver profiler", d),
+		})
 		time.Sleep(d)
 	}
-	log.Warn("could not initialize stackdriver profiler after retrying, giving up")
+	logger.Log(logging.Entry{
+		Severity: logging.Warning,
+		Payload:  "could not initialize stackdriver profiler after retrying, giving up",
+	})
 }
 
 func mustMapEnv(target *string, envKey string) {
@@ -193,7 +244,10 @@ func (cs *checkoutService) Check(ctx context.Context, req *healthpb.HealthCheckR
 }
 
 func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (*pb.PlaceOrderResponse, error) {
-	log.Infof("[PlaceOrder] user_id=%q user_currency=%q", req.UserId, req.UserCurrency)
+	logger.Log(logging.Entry{
+		Severity: logging.Info,
+		Payload:  fmt.Sprintf("[PlaceOrder] user_id=%q user_currency=%q", req.UserId, req.UserCurrency),
+	})
 
 	orderID, err := uuid.NewUUID()
 	if err != nil {
@@ -217,7 +271,10 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to charge card: %+v", err)
 	}
-	log.Infof("payment went through (transaction_id: %s)", txID)
+	logger.Log(logging.Entry{
+		Severity: logging.Info,
+		Payload:  fmt.Sprintf("payment went through (transaction_id: %s)", txID),
+	})
 
 	shippingTrackingID, err := cs.shipOrder(ctx, req.Address, prep.cartItems)
 	if err != nil {
@@ -235,9 +292,15 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 	}
 
 	if err := cs.sendOrderConfirmation(ctx, req.Email, orderResult); err != nil {
-		log.Warnf("failed to send order confirmation to %q: %+v", req.Email, err)
+		logger.Log(logging.Entry{
+			Severity: logging.Warning,
+			Payload:  fmt.Sprintf("failed to send order confirmation to %q: %+v", req.Email, err),
+		})
 	} else {
-		log.Infof("order confirmation email sent to %q", req.Email)
+		logger.Log(logging.Entry{
+			Severity: logging.Info,
+			Payload:  fmt.Sprintf("order confirmation email sent to %q", req.Email),
+		})
 	}
 	resp := &pb.PlaceOrderResponse{Order: orderResult}
 	return resp, nil
