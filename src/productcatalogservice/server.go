@@ -55,7 +55,7 @@ var (
 	reloadCatalog bool
 )
 
-func init() {
+func main() {
 	ctx := context.Background()
 	client, err := logging.NewClient(ctx, projectID)
 	if err != nil {
@@ -70,9 +70,7 @@ func init() {
 			Payload:  "could not parse product catalog",
 		})
 	}
-}
 
-func main() {
 	go initTracing()
 	go initProfiling("productcatalogservice", "1.0.0")
 	flag.Parse()

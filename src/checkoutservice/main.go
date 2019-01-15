@@ -49,15 +49,6 @@ const (
 
 var logger *logging.Logger
 
-func init() {
-	ctx := context.Background()
-	client, err := logging.NewClient(ctx, projectID)
-	if err != nil {
-		log.Fatalf("Failed to initialize Cloud Logging: %v", err)
-	}
-	logger = client.Logger("checkout-logger")
-}
-
 type checkoutService struct {
 	productCatalogSvcAddr string
 	cartSvcAddr           string
@@ -68,6 +59,13 @@ type checkoutService struct {
 }
 
 func main() {
+	ctx := context.Background()
+	client, err := logging.NewClient(ctx, projectID)
+	if err != nil {
+		log.Fatalf("Failed to initialize Cloud Logging: %v", err)
+	}
+	logger = client.Logger("checkout-logger")
+
 	go initTracing()
 	go initProfiling("checkoutservice", "1.0.0")
 
@@ -300,7 +298,7 @@ func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderReq
 		logger.Log(logging.Entry{
 			Severity: logging.Info,
 			Payload:  fmt.Sprintf("order confirmation email sent to %q", req.Email),
-		})
+		}
 	}
 	resp := &pb.PlaceOrderResponse{Order: orderResult}
 	return resp, nil
