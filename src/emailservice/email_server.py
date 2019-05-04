@@ -31,6 +31,7 @@ from grpc_health.v1 import health_pb2_grpc
 from opencensus.trace.exporters import stackdriver_exporter
 from opencensus.trace.ext.grpc import server_interceptor
 from opencensus.trace.samplers import always_on
+from opencensus.trace.tracer import Tracer
 
 # import googleclouddebugger
 import googlecloudprofiler
@@ -134,8 +135,16 @@ def start(dummy_mode):
   demo_pb2_grpc.add_EmailServiceServicer_to_server(service, server)
   health_pb2_grpc.add_HealthServicer_to_server(service, server)
 
+  tracer = Tracer.get_tracer()
+  sc = tracer.span_context
+  trace_id = sc.tracd_id
+  span_id = sc.span_id
+
   port = os.environ.get('PORT', "8080")
-  logger.info("listening on port: "+port)
+  logger.info("listening on port: "+port, extra={
+    "logging.googleapis.com/trace": trace_id,
+    "logging.googleapis.com/span": span_id
+  })
   server.add_insecure_port('[::]:'+port)
   server.start()
   try:
