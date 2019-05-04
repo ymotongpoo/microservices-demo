@@ -154,12 +154,12 @@ def start(dummy_mode):
       logger.info("sleep start", extra={
         "logging.googleapis.com/trace": trace_id,
         "logging.googleapis.com/span": span_id
-      }))
+      })
       time.sleep(3600)
       logger.info("sleep end", extra={
         "logging.googleapis.com/trace": trace_id,
         "logging.googleapis.com/span": span_id
-      }))
+      })
 
   except KeyboardInterrupt:
     server.stop(0)
