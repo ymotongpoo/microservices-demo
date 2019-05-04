@@ -28,10 +28,10 @@ import demo_pb2_grpc
 from grpc_health.v1 import health_pb2
 from grpc_health.v1 import health_pb2_grpc
 
+from opencensus.trace import execution_context
 from opencensus.trace.exporters import stackdriver_exporter
 from opencensus.trace.ext.grpc import server_interceptor
 from opencensus.trace.samplers import always_on
-from opencensus.trace.tracer import Tracer
 
 # import googleclouddebugger
 import googlecloudprofiler
@@ -140,10 +140,9 @@ def start(dummy_mode):
   server.start()
 
   # additional info for trace and logging correlation
-  tracer = Tracer.get_tracer()
-  sc = tracer.span_context
-  trace_id = sc.trace_id
-  span_id = sc.span_id
+  cur_tracer = execution_context.get_opencensus_tracer()
+  trace_id = cur_tracer.span_context.trace_id
+  span_id = cur_tracer.span_context.span_id
   logger.info("listening on port: "+port, extra={
     "logging.googleapis.com/trace": trace_id,
     "logging.googleapis.com/span": span_id})
