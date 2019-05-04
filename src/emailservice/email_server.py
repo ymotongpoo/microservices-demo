@@ -142,24 +142,21 @@ def start(dummy_mode):
   # additional info for trace and logging correlation
   tracer = Tracer.get_tracer()
   sc = tracer.span_context
-  trace_id = sc.tracd_id
+  trace_id = sc.trace_id
   span_id = sc.span_id
   logger.info("listening on port: "+port, extra={
     "logging.googleapis.com/trace": trace_id,
-    "logging.googleapis.com/span": span_id
-  })
+    "logging.googleapis.com/span": span_id})
 
   try:
     while True:
       logger.info("sleep start", extra={
         "logging.googleapis.com/trace": trace_id,
-        "logging.googleapis.com/span": span_id
-      })
+        "logging.googleapis.com/span": span_id})
       time.sleep(3600)
       logger.info("sleep end", extra={
         "logging.googleapis.com/trace": trace_id,
-        "logging.googleapis.com/span": span_id
-      })
+        "logging.googleapis.com/span": span_id})
 
   except KeyboardInterrupt:
     server.stop(0)
