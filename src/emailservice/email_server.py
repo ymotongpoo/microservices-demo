@@ -115,7 +115,13 @@ class EmailService(BaseEmailService):
 
 class DummyEmailService(BaseEmailService):
   def SendOrderConfirmation(self, request, context):
-    logger.info('A request to send order confirmation email to {} has been received.'.format(request.email))
+      # additional info for trace and logging correlation
+    cur_tracer = execution_context.get_opencensus_tracer()
+    trace_id = cur_tracer.span_context.trace_id
+    span_id = cur_tracer.span_context.span_id
+    logger.info('A request to send order confirmation email to {} has been received.'.format(request.email), extra={
+      "logging.googleapis.com/trace": trace_id,
+      "logging.googleapis.com/span": span_id})
     return demo_pb2.Empty()
 
 class HealthCheck():
