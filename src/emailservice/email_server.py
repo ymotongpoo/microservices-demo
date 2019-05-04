@@ -135,21 +135,32 @@ def start(dummy_mode):
   demo_pb2_grpc.add_EmailServiceServicer_to_server(service, server)
   health_pb2_grpc.add_HealthServicer_to_server(service, server)
 
+  port = os.environ.get('PORT', "8080")
+  server.add_insecure_port('[::]:'+port)
+  server.start()
+
+  # additional info for trace and logging correlation
   tracer = Tracer.get_tracer()
   sc = tracer.span_context
   trace_id = sc.tracd_id
   span_id = sc.span_id
-
-  port = os.environ.get('PORT', "8080")
   logger.info("listening on port: "+port, extra={
     "logging.googleapis.com/trace": trace_id,
     "logging.googleapis.com/span": span_id
   })
-  server.add_insecure_port('[::]:'+port)
-  server.start()
+
   try:
     while True:
+      logger.info("sleep start", extra={
+        "logging.googleapis.com/trace": trace_id,
+        "logging.googleapis.com/span": span_id
+      }))
       time.sleep(3600)
+      logger.info("sleep end", extra={
+        "logging.googleapis.com/trace": trace_id,
+        "logging.googleapis.com/span": span_id
+      }))
+
   except KeyboardInterrupt:
     server.stop(0)
 
