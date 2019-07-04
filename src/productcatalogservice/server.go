@@ -75,7 +75,7 @@ func init() {
 
 func main() {
 	go initTracing()
-	go initProfiling("productcatalogservice", "1.0.0")
+	go initProfiling("productcatalogservice", "1.1.0")
 	flag.Parse()
 
 	// set injected latency
@@ -87,7 +87,7 @@ func main() {
 		extraLatency = v
 		log.Infof("extra latency enabled (duration: %v)", extraLatency)
 	} else {
-		extraLatency = time.Duration(0)
+		extraLatency = time.Duration(30 * time.Milliseconds)
 	}
 
 	sigs := make(chan os.Signal, 1)
