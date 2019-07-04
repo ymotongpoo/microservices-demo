@@ -87,7 +87,7 @@ func main() {
 		extraLatency = v
 		log.Infof("extra latency enabled (duration: %v)", extraLatency)
 	} else {
-		extraLatency = time.Duration(30 * time.Milliseconds)
+		extraLatency = time.Duration(30 * time.Millisecond)
 	}
 
 	sigs := make(chan os.Signal, 1)
