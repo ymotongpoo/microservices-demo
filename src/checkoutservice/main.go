@@ -45,6 +45,8 @@ const (
 
 var log *logrus.Logger
 
+var extraLoop = 100000000
+
 func init() {
 	log = logrus.New()
 	log.Level = logrus.DebugLevel
@@ -70,7 +72,7 @@ type checkoutService struct {
 
 func main() {
 	go initTracing()
-	go initProfiling("checkoutservice", "1.0.0")
+	go initProfiling("checkoutservice", "1.3.0")
 
 	port := listenPort
 	if os.Getenv("PORT") != "" {
@@ -194,6 +196,13 @@ func (cs *checkoutService) Check(ctx context.Context, req *healthpb.HealthCheckR
 
 func (cs *checkoutService) PlaceOrder(ctx context.Context, req *pb.PlaceOrderRequest) (*pb.PlaceOrderResponse, error) {
 	log.Infof("[PlaceOrder] user_id=%q user_currency=%q", req.UserId, req.UserCurrency)
+
+	// dummy
+	dummy := 0
+	for i := 0; i < extraLoop; i++ {
+		dummy = i - 1
+	}
+	_ = dummy
 
 	orderID, err := uuid.NewUUID()
 	if err != nil {
